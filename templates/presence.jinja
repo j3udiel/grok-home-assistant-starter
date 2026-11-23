@@ -1,0 +1,23 @@
+{% set cfg = __CONFIG__ %}
+{% set ns = namespace(home=false, bad=false) %}
+{% if not cfg.people or not cfg.witnesses or not is_state('input_boolean.tesla_grok_presencia_revisada','on') %}
+  {% set ns.bad = true %}
+{% endif %}
+{% if is_state('input_boolean.tesla_grok_visitas','on') %}{% set ns.home = true %}
+{% elif not is_state('input_boolean.tesla_grok_visitas','off') %}{% set ns.bad = true %}{% endif %}
+{% for e in cfg.people %}
+  {% set v = states(e) %}{% set source = state_attr(e,'source') %}
+  {% if v == 'home' %}{% set ns.home = true %}
+  {% elif v != 'not_home' or not source or not source.startswith('device_tracker.') %}{% set ns.bad = true %}
+  {% elif states(source) != 'not_home' %}{% set ns.bad = true %}
+  {% elif not (0 <= as_timestamp(now()) - as_timestamp(states[source].last_reported,0) <= cfg.max_age_seconds) %}{% set ns.bad = true %}
+  {% endif %}
+{% endfor %}
+{% for e in cfg.witnesses %}
+  {% if is_state(e,'on') %}{% set ns.home = true %}
+  {% elif not is_state(e,'off') %}{% set ns.bad = true %}
+  {% elif not (0 <= as_timestamp(now()) - as_timestamp(states[e].last_reported,0) <= cfg.max_age_seconds) %}{% set ns.bad = true %}
+  {% elif as_timestamp(now()) - as_timestamp(states[e].last_changed,0) < cfg.quiet_seconds %}{% set ns.home = true %}
+  {% endif %}
+{% endfor %}
+{{ 'Ocupada' if ns.home else 'Desconocida' if ns.bad else 'Vacia verificada' }}

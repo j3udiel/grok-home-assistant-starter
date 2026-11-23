@@ -1,0 +1,25 @@
+{% set checks = __CHECKS__ %}{% set expected = __CATEGORIES__ %}
+{% set ns = namespace(critical=[], warning=[], missing=[], categories=[]) %}
+{% for c in checks %}
+  {% set v = states(c.entity) %}
+  {% set ns.categories = ns.categories + [c.category] %}
+  {% if v in ['unknown','unavailable','none','None',''] %}
+    {% set ns.missing = ns.missing + [c.label] %}
+  {% elif not (0 <= as_timestamp(now()) - as_timestamp(states[c.entity].last_reported,0) <= c.max_age_seconds) %}
+    {% set ns.missing = ns.missing + [c.label ~ ': dato antiguo'] %}
+  {% elif c.kind == 'states' %}
+    {% if v in c.critical %}{% set ns.critical = ns.critical + [c.label ~ ': ' ~ v] %}
+    {% elif v in c.warning %}{% set ns.warning = ns.warning + [c.label ~ ': ' ~ v] %}
+    {% elif v not in c.ok %}{% set ns.missing = ns.missing + [c.label ~ ': estado no clasificado'] %}{% endif %}
+  {% elif not is_number(v) %}{% set ns.missing = ns.missing + [c.label] %}
+  {% elif (c.kind == 'above' and v|float >= c.critical) or (c.kind == 'below' and v|float <= c.critical) %}
+    {% set ns.critical = ns.critical + [c.label ~ ': ' ~ v] %}
+  {% elif (c.kind == 'above' and v|float >= c.warning) or (c.kind == 'below' and v|float <= c.warning) %}
+    {% set ns.warning = ns.warning + [c.label ~ ': ' ~ v] %}
+  {% endif %}
+{% endfor %}
+{% set uncovered = expected | reject('in', ns.categories) | list %}
+{% set level = 'Critico' if ns.critical else 'Advertencia' if ns.warning else 'Desconocido' if ns.missing or uncovered or not checks else 'OK' %}
+{% set issues = ns.critical + ns.warning %}
+{% set summary = level ~ '. ' ~ (issues[:2]|join('; ') if issues else 'Sin alertas en fuentes disponibles') ~ '. Sin datos: ' ~ ns.missing|length ~ (' (' ~ ns.missing[:2]|join(',') ~ ')' if ns.missing else '') ~ '; sin cobertura: ' ~ uncovered|join(',') %}
+{{ dict(summary=summary[:235], level=level, missing=ns.missing, issues=issues, uncovered=uncovered) }}

@@ -1,0 +1,132 @@
+# OPTIONAL RECIPE: fictitious IDs. Do not install without adapting and reviewing.
+# Keep these scripts and shell_command UNEXPOSED. Merge as a separate package.
+shell_command:
+  local_photo_cleanup: 'rm -f -- /media/tesla_grok_demo.jpg'
+
+script:
+  local_photo:
+    alias: Adaptador privado de una camara a un chat fijo
+    description: No exponer. Devuelve accepted solo si Telegram confirma un mensaje.
+    mode: single
+    trace:
+      stored_traces: 5
+    sequence:
+      - condition: template
+        value_template: >-
+          {{ is_state('input_boolean.tesla_grok_habilitado','on')
+             and is_state('input_boolean.tesla_grok_permitir_camaras','on')
+             and states('camera.example_camera') in ['idle','streaming','recording']
+             and states('notify.example_chat') not in ['unknown','unavailable','none',''] }}
+      - action: shell_command.local_photo_cleanup
+        response_variable: cleanup
+      - condition: template
+        value_template: "{{ cleanup is mapping and cleanup.get('returncode',-1) == 0 }}"
+      - action: camera.snapshot
+        target:
+          entity_id: camera.example_camera
+        data:
+          filename: /media/tesla_grok_demo.jpg
+      - condition: template
+        value_template: >-
+          {{ is_state('input_boolean.tesla_grok_habilitado','on')
+             and is_state('input_boolean.tesla_grok_permitir_camaras','on')
+             and states('camera.example_camera') in ['idle','streaming','recording'] }}
+      - action: telegram_bot.send_photo
+        data:
+          entity_id: notify.example_chat
+          file: /media/tesla_grok_demo.jpg
+          caption: "Captura solicitada {{ now().isoformat() }}. Sin analisis visual."
+          parse_mode: plain_text
+        response_variable: delivery
+      - variables:
+          result: >-
+            {{ dict(accepted=delivery is mapping
+                 and delivery.get('chats',[])|length == 1
+                 and delivery['chats'][0].get('message_id',0)|int(0) > 0) }}
+      - action: shell_command.local_photo_cleanup
+        continue_on_error: true
+      - stop: Resultado de aceptacion por Telegram
+        response_variable: result
+
+  local_climate_arrival:
+    alias: Adaptador privado de consigna de llegada
+    description: >-
+      No exponer. Ejemplo de calefaccion ya encendida, grados Celsius y consigna
+      fija de 21. No restaura automaticamente: queda hasta otra rutina u orden.
+    mode: single
+    sequence:
+      - condition: template
+        value_template: >-
+          {{ is_state('input_boolean.tesla_grok_habilitado','on')
+             and is_state('input_boolean.tesla_grok_permitir_clima','on')
+             and is_state('sensor.tesla_grok_presencia','Vacia verificada')
+             and is_state('climate.example_room','heat')
+             and state_attr('sensor.example_temperature','unit_of_measurement') == '°C'
+             and is_number(states('sensor.example_temperature'))
+             and 0 <= as_timestamp(now()) - as_timestamp(states['sensor.example_temperature'].last_reported,0) < 900
+             and states('sensor.example_temperature')|float(99) < 20
+             and is_number(state_attr('climate.example_room','temperature'))
+             and is_number(state_attr('climate.example_room','min_temp'))
+             and is_number(state_attr('climate.example_room','max_temp'))
+             and state_attr('climate.example_room','min_temp')|float(99) <= 21
+             and state_attr('climate.example_room','max_temp')|float(0) >= 21 }}
+      - action: climate.set_temperature
+        target:
+          entity_id: climate.example_room
+        data:
+          temperature: 21
+
+  local_climate_away:
+    alias: Adaptador privado de preset ausente
+    description: No exponer. Solo para equipos con preset away revisado. No restaura al volver.
+    mode: single
+    sequence:
+      - condition: template
+        value_template: >-
+          {{ is_state('input_boolean.tesla_grok_habilitado','on')
+             and is_state('input_boolean.tesla_grok_permitir_clima','on')
+             and is_state('sensor.tesla_grok_presencia','Vacia verificada')
+             and states('climate.example_room') in ['heat','cool','auto','heat_cool']
+             and 'away' in (state_attr('climate.example_room','preset_modes') or []) }}
+      - action: climate.set_preset_mode
+        target:
+          entity_id: climate.example_room
+        data:
+          preset_mode: away
+
+automation:
+  - id: local_photo_watchdog
+    alias: Limitar ejecucion del adaptador privado de fotos
+    mode: single
+    triggers:
+      - trigger: state
+        entity_id: script.local_photo
+        to: 'on'
+        for: '00:03:00'
+    actions:
+      - action: script.turn_off
+        target:
+          entity_id:
+            - script.local_photo
+            - script.tesla_grok_camaras_telegram
+      - action: shell_command.local_photo_cleanup
+        continue_on_error: true
+      - event: tesla_grok_operacion
+        event_data:
+          summary: 'Envio interrumpido por tiempo limite. Entrega no confirmada; revisa Telegram antes de repetir.'
+          at: '{{ now().isoformat() }}'
+
+  - id: local_photo_housekeeping
+    alias: Limpiar captura residual privada cuando no hay envio
+    mode: single
+    triggers:
+      - trigger: homeassistant
+        event: start
+      - trigger: time_pattern
+        minutes: '/15'
+    conditions:
+      - condition: state
+        entity_id: script.local_photo
+        state: 'off'
+    actions:
+      - action: shell_command.local_photo_cleanup

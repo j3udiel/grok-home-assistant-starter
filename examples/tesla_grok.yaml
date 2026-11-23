@@ -1,0 +1,605 @@
+# Generated safe baseline: no real entities, physical actions disabled.
+input_boolean:
+  tesla_grok_habilitado:
+    name: Tesla Grok Proyecto habilitado
+    initial: true
+  tesla_grok_presencia_revisada:
+    name: Tesla Grok He revisado toda la cobertura de presencia
+    initial: false
+  tesla_grok_visitas:
+    name: Tesla Grok Hay visitas o presencia no cubierta
+    initial: true
+  tesla_grok_permitir_luces:
+    name: Tesla Grok Autorizar acciones sobre luces
+    initial: false
+  tesla_grok_permitir_clima:
+    name: Tesla Grok Autorizar adaptadores de climatizacion
+    initial: false
+  tesla_grok_permitir_simulacion:
+    name: Tesla Grok Autorizar simulacion con lampara dedicada
+    initial: false
+  tesla_grok_permitir_alarma:
+    name: Tesla Grok Autorizar armado, nunca desarmado
+    initial: false
+  tesla_grok_permitir_camaras:
+    name: Tesla Grok Autorizar envio a destino fijo
+    initial: false
+  tesla_grok_ausencia:
+    name: Tesla Grok Ausencia solicitada
+    initial: false
+  tesla_grok_vacaciones:
+    name: Tesla Grok Vacaciones solicitadas
+    initial: false
+input_text:
+  tesla_grok_reserva_luz:
+    name: Tesla Grok reserva interna
+    max: 255
+timer:
+  tesla_grok_luz:
+    duration: 00:10:00
+    restore: true
+  tesla_grok_camara:
+    duration: 00:02:00
+    restore: true
+template:
+- sensor:
+  - name: Tesla Grok presencia
+    unique_id: tesla_grok_presencia
+    default_entity_id: sensor.tesla_grok_presencia
+    state: "{% set cfg = {'people': [], 'witnesses': [], 'max_age_seconds': 900, 'quiet_seconds': 300} %}\n{% set\
+      \ ns = namespace(home=false, bad=false) %}\n{% if not cfg.people or not cfg.witnesses or not is_state('input_boolean.tesla_grok_presencia_revisada','on')\
+      \ %}\n  {% set ns.bad = true %}\n{% endif %}\n{% if is_state('input_boolean.tesla_grok_visitas','on') %}{%\
+      \ set ns.home = true %}\n{% elif not is_state('input_boolean.tesla_grok_visitas','off') %}{% set ns.bad =\
+      \ true %}{% endif %}\n{% for e in cfg.people %}\n  {% set v = states(e) %}{% set source = state_attr(e,'source')\
+      \ %}\n  {% if v == 'home' %}{% set ns.home = true %}\n  {% elif v != 'not_home' or not source or not source.startswith('device_tracker.')\
+      \ %}{% set ns.bad = true %}\n  {% elif states(source) != 'not_home' %}{% set ns.bad = true %}\n  {% elif not\
+      \ (0 <= as_timestamp(now()) - as_timestamp(states[source].last_reported,0) <= cfg.max_age_seconds) %}{% set\
+      \ ns.bad = true %}\n  {% endif %}\n{% endfor %}\n{% for e in cfg.witnesses %}\n  {% if is_state(e,'on') %}{%\
+      \ set ns.home = true %}\n  {% elif not is_state(e,'off') %}{% set ns.bad = true %}\n  {% elif not (0 <= as_timestamp(now())\
+      \ - as_timestamp(states[e].last_reported,0) <= cfg.max_age_seconds) %}{% set ns.bad = true %}\n  {% elif as_timestamp(now())\
+      \ - as_timestamp(states[e].last_changed,0) < cfg.quiet_seconds %}{% set ns.home = true %}\n  {% endif %}\n\
+      {% endfor %}\n{{ 'Ocupada' if ns.home else 'Desconocida' if ns.bad else 'Vacia verificada' }}\n"
+- triggers:
+  - trigger: event
+    event_type: tesla_grok_informe_seguridad
+  - trigger: homeassistant
+    event: start
+  - trigger: time_pattern
+    minutes: /1
+  sensor:
+  - name: Tesla Grok seguridad
+    unique_id: tesla_grok_seguridad
+    default_entity_id: sensor.tesla_grok_seguridad
+    state: '{% set d = trigger.event.data if trigger.platform == ''event'' else this.attributes %}
+
+      {% set stamp = as_timestamp(d.get(''at''), 0) %}
+
+      {% if trigger.platform == ''homeassistant'' or not stamp %}SIN REVISION: ejecuta el informe.
+
+      {% elif as_timestamp(now()) - stamp > 300 %}CADUCADO: ejecuta una nueva revision.
+
+      {% else %}{{ (d.get(''summary'', ''Desconocido'') ~ '' ['' ~ d.get(''at'','''')[11:19] ~ '']'')[:255] }}{%
+      endif %}'
+    attributes:
+      summary: '{{ trigger.event.data.get(''summary'') if trigger.platform == ''event'' else this.attributes.get(''summary'')
+        }}'
+      level: '{{ trigger.event.data.get(''level'') if trigger.platform == ''event'' else this.attributes.get(''level'')
+        }}'
+      missing: '{{ trigger.event.data.get(''missing'') if trigger.platform == ''event'' else this.attributes.get(''missing'')
+        }}'
+      issues: '{{ trigger.event.data.get(''issues'') if trigger.platform == ''event'' else this.attributes.get(''issues'')
+        }}'
+      uncovered: '{{ trigger.event.data.get(''uncovered'') if trigger.platform == ''event'' else this.attributes.get(''uncovered'')
+        }}'
+      at: '{{ trigger.event.data.at if trigger.platform == ''event'' else none if trigger.platform == ''homeassistant''
+        else this.attributes.get(''at'') }}'
+- triggers:
+  - trigger: event
+    event_type: tesla_grok_informe_homelab
+  - trigger: homeassistant
+    event: start
+  - trigger: time_pattern
+    minutes: /1
+  sensor:
+  - name: Tesla Grok homelab
+    unique_id: tesla_grok_homelab
+    default_entity_id: sensor.tesla_grok_homelab
+    state: '{% set d = trigger.event.data if trigger.platform == ''event'' else this.attributes %}
+
+      {% set stamp = as_timestamp(d.get(''at''), 0) %}
+
+      {% if trigger.platform == ''homeassistant'' or not stamp %}SIN REVISION: ejecuta el informe.
+
+      {% elif as_timestamp(now()) - stamp > 300 %}CADUCADO: ejecuta una nueva revision.
+
+      {% else %}{{ (d.get(''summary'', ''Desconocido'') ~ '' ['' ~ d.get(''at'','''')[11:19] ~ '']'')[:255] }}{%
+      endif %}'
+    attributes:
+      summary: '{{ trigger.event.data.get(''summary'') if trigger.platform == ''event'' else this.attributes.get(''summary'')
+        }}'
+      level: '{{ trigger.event.data.get(''level'') if trigger.platform == ''event'' else this.attributes.get(''level'')
+        }}'
+      missing: '{{ trigger.event.data.get(''missing'') if trigger.platform == ''event'' else this.attributes.get(''missing'')
+        }}'
+      issues: '{{ trigger.event.data.get(''issues'') if trigger.platform == ''event'' else this.attributes.get(''issues'')
+        }}'
+      uncovered: '{{ trigger.event.data.get(''uncovered'') if trigger.platform == ''event'' else this.attributes.get(''uncovered'')
+        }}'
+      at: '{{ trigger.event.data.at if trigger.platform == ''event'' else none if trigger.platform == ''homeassistant''
+        else this.attributes.get(''at'') }}'
+- triggers:
+  - trigger: event
+    event_type: tesla_grok_operacion
+  - trigger: homeassistant
+    event: start
+  sensor:
+  - name: Tesla Grok ultima operacion
+    unique_id: tesla_grok_ultima_operacion
+    default_entity_id: sensor.tesla_grok_ultima_operacion
+    state: '{{ (''HISTORICO ['' ~ trigger.event.data.at[11:19] ~ ''] '' ~ trigger.event.data.summary)[:255] if trigger.platform
+      == ''event'' else ''Reiniciado: sin resultado confirmado de esta sesion'' }}'
+- sensor:
+  - name: Tesla Grok modos
+    unique_id: tesla_grok_modos
+    default_entity_id: sensor.tesla_grok_modos
+    state: '{{ ''Proyecto: '' ~ states(''input_boolean.tesla_grok_habilitado'') ~ ''; vacaciones: '' ~ states(''input_boolean.tesla_grok_vacaciones'')
+      ~ ''; ausencia: '' ~ states(''input_boolean.tesla_grok_ausencia'') ~ ''; luz temporal: '' ~ states(''timer.tesla_grok_luz'')
+      }}'
+script:
+  tesla_grok_revision_seguridad:
+    alias: Tesla Grok revision seguridad
+    description: Solo consulta. Ejecuta y lee sensor.tesla_grok_seguridad. Sin datos nunca significa seguro.
+    mode: single
+    max_exceeded: silent
+    trace:
+      stored_traces: 10
+    sequence:
+    - variables:
+        result: "{% set checks = [] %}{% set expected = ['puertas', 'ventanas', 'alarma', 'humo', 'agua'] %}\n{%\
+          \ set ns = namespace(critical=[], warning=[], missing=[], categories=[]) %}\n{% for c in checks %}\n \
+          \ {% set v = states(c.entity) %}\n  {% set ns.categories = ns.categories + [c.category] %}\n  {% if v\
+          \ in ['unknown','unavailable','none','None',''] %}\n    {% set ns.missing = ns.missing + [c.label] %}\n\
+          \  {% elif not (0 <= as_timestamp(now()) - as_timestamp(states[c.entity].last_reported,0) <= c.max_age_seconds)\
+          \ %}\n    {% set ns.missing = ns.missing + [c.label ~ ': dato antiguo'] %}\n  {% elif c.kind == 'states'\
+          \ %}\n    {% if v in c.critical %}{% set ns.critical = ns.critical + [c.label ~ ': ' ~ v] %}\n    {% elif\
+          \ v in c.warning %}{% set ns.warning = ns.warning + [c.label ~ ': ' ~ v] %}\n    {% elif v not in c.ok\
+          \ %}{% set ns.missing = ns.missing + [c.label ~ ': estado no clasificado'] %}{% endif %}\n  {% elif not\
+          \ is_number(v) %}{% set ns.missing = ns.missing + [c.label] %}\n  {% elif (c.kind == 'above' and v|float\
+          \ >= c.critical) or (c.kind == 'below' and v|float <= c.critical) %}\n    {% set ns.critical = ns.critical\
+          \ + [c.label ~ ': ' ~ v] %}\n  {% elif (c.kind == 'above' and v|float >= c.warning) or (c.kind == 'below'\
+          \ and v|float <= c.warning) %}\n    {% set ns.warning = ns.warning + [c.label ~ ': ' ~ v] %}\n  {% endif\
+          \ %}\n{% endfor %}\n{% set uncovered = expected | reject('in', ns.categories) | list %}\n{% set level\
+          \ = 'Critico' if ns.critical else 'Advertencia' if ns.warning else 'Desconocido' if ns.missing or uncovered\
+          \ or not checks else 'OK' %}\n{% set issues = ns.critical + ns.warning %}\n{% set summary = level ~ '.\
+          \ ' ~ (issues[:2]|join('; ') if issues else 'Sin alertas en fuentes disponibles') ~ '. Sin datos: ' ~\
+          \ ns.missing|length ~ (' (' ~ ns.missing[:2]|join(',') ~ ')' if ns.missing else '') ~ '; sin cobertura:\
+          \ ' ~ uncovered|join(',') %}\n{{ dict(summary=summary[:235], level=level, missing=ns.missing, issues=issues,\
+          \ uncovered=uncovered) }}\n"
+    - event: tesla_grok_informe_seguridad
+      event_data:
+        summary: '{{ result.summary }}'
+        level: '{{ result.level }}'
+        missing: '{{ result.missing }}'
+        issues: '{{ result.issues }}'
+        uncovered: '{{ result.uncovered }}'
+        at: '{{ now().isoformat() }}'
+  tesla_grok_estado_homelab:
+    alias: Tesla Grok estado homelab
+    description: Solo consulta. Ejecuta y lee sensor.tesla_grok_homelab. Sin datos nunca significa seguro.
+    mode: single
+    max_exceeded: silent
+    trace:
+      stored_traces: 10
+    sequence:
+    - variables:
+        result: "{% set checks = [] %}{% set expected = ['servidores', 'nas', 'ups', 'docker', 'zabbix'] %}\n{%\
+          \ set ns = namespace(critical=[], warning=[], missing=[], categories=[]) %}\n{% for c in checks %}\n \
+          \ {% set v = states(c.entity) %}\n  {% set ns.categories = ns.categories + [c.category] %}\n  {% if v\
+          \ in ['unknown','unavailable','none','None',''] %}\n    {% set ns.missing = ns.missing + [c.label] %}\n\
+          \  {% elif not (0 <= as_timestamp(now()) - as_timestamp(states[c.entity].last_reported,0) <= c.max_age_seconds)\
+          \ %}\n    {% set ns.missing = ns.missing + [c.label ~ ': dato antiguo'] %}\n  {% elif c.kind == 'states'\
+          \ %}\n    {% if v in c.critical %}{% set ns.critical = ns.critical + [c.label ~ ': ' ~ v] %}\n    {% elif\
+          \ v in c.warning %}{% set ns.warning = ns.warning + [c.label ~ ': ' ~ v] %}\n    {% elif v not in c.ok\
+          \ %}{% set ns.missing = ns.missing + [c.label ~ ': estado no clasificado'] %}{% endif %}\n  {% elif not\
+          \ is_number(v) %}{% set ns.missing = ns.missing + [c.label] %}\n  {% elif (c.kind == 'above' and v|float\
+          \ >= c.critical) or (c.kind == 'below' and v|float <= c.critical) %}\n    {% set ns.critical = ns.critical\
+          \ + [c.label ~ ': ' ~ v] %}\n  {% elif (c.kind == 'above' and v|float >= c.warning) or (c.kind == 'below'\
+          \ and v|float <= c.warning) %}\n    {% set ns.warning = ns.warning + [c.label ~ ': ' ~ v] %}\n  {% endif\
+          \ %}\n{% endfor %}\n{% set uncovered = expected | reject('in', ns.categories) | list %}\n{% set level\
+          \ = 'Critico' if ns.critical else 'Advertencia' if ns.warning else 'Desconocido' if ns.missing or uncovered\
+          \ or not checks else 'OK' %}\n{% set issues = ns.critical + ns.warning %}\n{% set summary = level ~ '.\
+          \ ' ~ (issues[:2]|join('; ') if issues else 'Sin alertas en fuentes disponibles') ~ '. Sin datos: ' ~\
+          \ ns.missing|length ~ (' (' ~ ns.missing[:2]|join(',') ~ ')' if ns.missing else '') ~ '; sin cobertura:\
+          \ ' ~ uncovered|join(',') %}\n{{ dict(summary=summary[:235], level=level, missing=ns.missing, issues=issues,\
+          \ uncovered=uncovered) }}\n"
+    - event: tesla_grok_informe_homelab
+      event_data:
+        summary: '{{ result.summary }}'
+        level: '{{ result.level }}'
+        missing: '{{ result.missing }}'
+        issues: '{{ result.issues }}'
+        uncovered: '{{ result.uncovered }}'
+        at: '{{ now().isoformat() }}'
+  tesla_grok_motor:
+    alias: Tesla Grok motor interno
+    description: NO EXPONER. Serializa las acciones fisicas y reevalua presencia.
+    mode: queued
+    max_exceeded: silent
+    trace:
+      stored_traces: 10
+    sequence:
+    - variables:
+        presence_now: "{% set cfg = {'people': [], 'witnesses': [], 'max_age_seconds': 900, 'quiet_seconds': 300}\
+          \ %}\n{% set ns = namespace(home=false, bad=false) %}\n{% if not cfg.people or not cfg.witnesses or not\
+          \ is_state('input_boolean.tesla_grok_presencia_revisada','on') %}\n  {% set ns.bad = true %}\n{% endif\
+          \ %}\n{% if is_state('input_boolean.tesla_grok_visitas','on') %}{% set ns.home = true %}\n{% elif not\
+          \ is_state('input_boolean.tesla_grok_visitas','off') %}{% set ns.bad = true %}{% endif %}\n{% for e in\
+          \ cfg.people %}\n  {% set v = states(e) %}{% set source = state_attr(e,'source') %}\n  {% if v == 'home'\
+          \ %}{% set ns.home = true %}\n  {% elif v != 'not_home' or not source or not source.startswith('device_tracker.')\
+          \ %}{% set ns.bad = true %}\n  {% elif states(source) != 'not_home' %}{% set ns.bad = true %}\n  {% elif\
+          \ not (0 <= as_timestamp(now()) - as_timestamp(states[source].last_reported,0) <= cfg.max_age_seconds)\
+          \ %}{% set ns.bad = true %}\n  {% endif %}\n{% endfor %}\n{% for e in cfg.witnesses %}\n  {% if is_state(e,'on')\
+          \ %}{% set ns.home = true %}\n  {% elif not is_state(e,'off') %}{% set ns.bad = true %}\n  {% elif not\
+          \ (0 <= as_timestamp(now()) - as_timestamp(states[e].last_reported,0) <= cfg.max_age_seconds) %}{% set\
+          \ ns.bad = true %}\n  {% elif as_timestamp(now()) - as_timestamp(states[e].last_changed,0) < cfg.quiet_seconds\
+          \ %}{% set ns.home = true %}\n  {% endif %}\n{% endfor %}\n{{ 'Ocupada' if ns.home else 'Desconocida'\
+          \ if ns.bad else 'Vacia verificada' }}\n"
+        allowed_lamps: []
+    - if:
+      - condition: template
+        value_template: '{{ operation != ''liberar'' }}'
+      then:
+      - event: tesla_grok_operacion
+        event_data:
+          summary: En curso; resultado final aun no confirmado. Si no cambia, consulta trazas.
+          at: '{{ now().isoformat() }}'
+    - choose:
+      - conditions: '{{ operation == ''liberar'' }}'
+        sequence:
+        - &id001
+          variables:
+            lease: '{{ states(''input_text.tesla_grok_reserva_luz'')[6:] | from_json({}) if states(''input_text.tesla_grok_reserva_luz'').startswith(''lease:'')
+              else {} }}'
+        - &id002
+          if:
+          - condition: template
+            value_template: '{{ lease is mapping and lease.get(''entity'') and (as_timestamp(now()) >= lease.get(''until'',0)|float(0)
+              or not (is_state(''input_boolean.tesla_grok_habilitado'',''on'')) or not (presence_now == ''Vacia
+              verificada'') or not is_state(''input_boolean.tesla_grok_permitir_luces'',''on'') or (lease.get(''kind'')
+              == ''simular'' and (not is_state(''input_boolean.tesla_grok_vacaciones'',''on'') or not is_state(''input_boolean.tesla_grok_permitir_simulacion'',''on''))))
+              }}'
+          then:
+          - if:
+            - condition: template
+              value_template: '{{ lease.get(''entity'') in allowed_lamps and is_state(lease.entity,''on'') and as_timestamp(states[lease.entity].last_updated,0)
+                == lease.get(''stamp'',-1) }}'
+            then:
+            - action: light.turn_off
+              target:
+                entity_id: '{{ lease.entity }}'
+          - action: input_text.set_value
+            target:
+              entity_id: input_text.tesla_grok_reserva_luz
+            data:
+              value: ''
+          - action: timer.cancel
+            target:
+              entity_id: timer.tesla_grok_luz
+      - conditions: '{{ operation == ''vacaciones_off'' }}'
+        sequence:
+        - action: input_boolean.turn_off
+          target:
+            entity_id: input_boolean.tesla_grok_vacaciones
+        - action: input_boolean.turn_off
+          target:
+            entity_id: input_boolean.tesla_grok_ausencia
+        - event: tesla_grok_operacion
+          event_data:
+            summary: Vacaciones desactivadas. No se restauran consignas ni se apagan luces ajenas.
+            at: '{{ now().isoformat() }}'
+        - *id001
+        - *id002
+      - conditions: '{{ operation == ''llegada'' }}'
+        sequence:
+        - &id003
+          if:
+          - condition: template
+            value_template: '{{ not (is_state(''input_boolean.tesla_grok_habilitado'',''on'')) }}'
+          then:
+          - event: tesla_grok_operacion
+            event_data:
+              summary: 'Bloqueado: proyecto deshabilitado'
+              at: '{{ now().isoformat() }}'
+          - stop: 'Bloqueado: proyecto deshabilitado'
+        - if:
+          - condition: template
+            value_template: '{{ not (presence_now == ''Vacia verificada'') }}'
+          then:
+          - event: tesla_grok_operacion
+            event_data:
+              summary: 'Llegada limitada: casa ocupada o presencia desconocida; sin cambios fisicos'
+              at: '{{ now().isoformat() }}'
+          - stop: 'Llegada limitada: casa ocupada o presencia desconocida; sin cambios fisicos'
+        - if:
+          - condition: template
+            value_template: '{{ is_state(''input_boolean.tesla_grok_vacaciones'',''on'') }}'
+          then:
+          - event: tesla_grok_operacion
+            event_data:
+              summary: Desactiva vacaciones antes de preparar llegada
+              at: '{{ now().isoformat() }}'
+          - stop: Desactiva vacaciones antes de preparar llegada
+        - event: tesla_grok_operacion
+          event_data:
+            summary: Sin luz configurada para esta funcion; no se ha encendido ninguna.
+            at: '{{ now().isoformat() }}'
+      - conditions: '{{ operation in [''salir'',''vacaciones_on''] }}'
+        sequence:
+        - *id003
+        - if:
+          - condition: template
+            value_template: '{{ not (presence_now == ''Vacia verificada'') }}'
+          then:
+          - event: tesla_grok_operacion
+            event_data:
+              summary: 'Bloqueado: vivienda ocupada o presencia desconocida'
+              at: '{{ now().isoformat() }}'
+          - stop: 'Bloqueado: vivienda ocupada o presencia desconocida'
+        - if:
+          - condition: template
+            value_template: '{{ operation == ''vacaciones_on'' }}'
+          then:
+          - action: input_boolean.turn_on
+            target:
+              entity_id: input_boolean.tesla_grok_vacaciones
+        - action: input_boolean.turn_on
+          target:
+            entity_id: input_boolean.tesla_grok_ausencia
+        - if:
+          - condition: template
+            value_template: '{{ is_state(''input_boolean.tesla_grok_permitir_luces'',''on'') }}'
+          then:
+          - event: tesla_grok_operacion
+            event_data:
+              summary: Sin luces autorizadas configuradas
+              at: '{{ now().isoformat() }}'
+        - action: script.tesla_grok_revision_seguridad
+        - event: tesla_grok_operacion
+          event_data:
+            summary: Modo solicitado registrado. Consulta seguridad para incidencias y trazas para acciones; permisos
+              fisicos independientes.
+            at: '{{ now().isoformat() }}'
+      - conditions: '{{ operation == ''simular'' }}'
+        sequence:
+        - *id003
+        - condition: template
+          value_template: '{{ presence_now == ''Vacia verificada'' and is_state(''input_boolean.tesla_grok_vacaciones'',''on'')
+            and is_state(''input_boolean.tesla_grok_permitir_simulacion'',''on'') and 18 <= now().hour < 23 }}'
+        - event: tesla_grok_operacion
+          event_data:
+            summary: Sin luz configurada para esta funcion; no se ha encendido ninguna.
+            at: '{{ now().isoformat() }}'
+      - conditions: '{{ operation == ''alarma_noche'' }}'
+        sequence:
+        - *id003
+        - if:
+          - condition: template
+            value_template: '{{ not is_state(''input_boolean.tesla_grok_permitir_alarma'',''on'') }}'
+          then:
+          - event: tesla_grok_operacion
+            event_data:
+              summary: Armado desautorizado
+              at: '{{ now().isoformat() }}'
+          - stop: Armado desautorizado
+        - event: tesla_grok_operacion
+          event_data:
+            summary: 'No configurado: falta alarma o lista de contactos verificada'
+            at: '{{ now().isoformat() }}'
+      - conditions: '{{ operation == ''alarma_fuera'' }}'
+        sequence:
+        - *id003
+        - if:
+          - condition: template
+            value_template: '{{ not is_state(''input_boolean.tesla_grok_permitir_alarma'',''on'') }}'
+          then:
+          - event: tesla_grok_operacion
+            event_data:
+              summary: Armado desautorizado
+              at: '{{ now().isoformat() }}'
+          - stop: Armado desautorizado
+        - event: tesla_grok_operacion
+          event_data:
+            summary: 'No configurado: falta alarma o lista de contactos verificada'
+            at: '{{ now().isoformat() }}'
+      default:
+      - event: tesla_grok_operacion
+        event_data:
+          summary: Operacion desconocida; sin cambios
+          at: '{{ now().isoformat() }}'
+    max: 5
+  tesla_grok_preparar_llegada:
+    alias: Tesla Grok preparar llegada
+    description: Ejecuta la politica local; consulta sensor.tesla_grok_ultima_operacion y sensor.tesla_grok_modos.
+      No repitas si esta en curso.
+    mode: single
+    max_exceeded: silent
+    trace:
+      stored_traces: 10
+    sequence:
+    - action: script.tesla_grok_motor
+      data:
+        operation: llegada
+  tesla_grok_salir_de_casa:
+    alias: Tesla Grok salir de casa
+    description: Ejecuta la politica local; consulta sensor.tesla_grok_ultima_operacion y sensor.tesla_grok_modos.
+      No repitas si esta en curso.
+    mode: single
+    max_exceeded: silent
+    trace:
+      stored_traces: 10
+    sequence:
+    - action: script.tesla_grok_motor
+      data:
+        operation: salir
+  tesla_grok_activar_vacaciones:
+    alias: Tesla Grok activar vacaciones
+    description: Ejecuta la politica local; consulta sensor.tesla_grok_ultima_operacion y sensor.tesla_grok_modos.
+      No repitas si esta en curso.
+    mode: single
+    max_exceeded: silent
+    trace:
+      stored_traces: 10
+    sequence:
+    - action: script.tesla_grok_motor
+      data:
+        operation: vacaciones_on
+  tesla_grok_desactivar_vacaciones:
+    alias: Tesla Grok desactivar vacaciones
+    description: Ejecuta la politica local; consulta sensor.tesla_grok_ultima_operacion y sensor.tesla_grok_modos.
+      No repitas si esta en curso.
+    mode: single
+    max_exceeded: silent
+    trace:
+      stored_traces: 10
+    sequence:
+    - action: script.tesla_grok_motor
+      data:
+        operation: vacaciones_off
+  tesla_grok_armar_alarma_noche:
+    alias: Tesla Grok armar alarma noche
+    description: Ejecuta la politica local; consulta sensor.tesla_grok_ultima_operacion y sensor.tesla_grok_modos.
+      No repitas si esta en curso.
+    mode: single
+    max_exceeded: silent
+    trace:
+      stored_traces: 10
+    sequence:
+    - action: script.tesla_grok_motor
+      data:
+        operation: alarma_noche
+  tesla_grok_armar_alarma_fuera:
+    alias: Tesla Grok armar alarma fuera
+    description: Ejecuta la politica local; consulta sensor.tesla_grok_ultima_operacion y sensor.tesla_grok_modos.
+      No repitas si esta en curso.
+    mode: single
+    max_exceeded: silent
+    trace:
+      stored_traces: 10
+    sequence:
+    - action: script.tesla_grok_motor
+      data:
+        operation: alarma_fuera
+  tesla_grok_camaras_telegram:
+    alias: Tesla Grok enviar foto a Telegram
+    description: 'Una foto actual al destino fijo configurado. Parametro camara: palabra exacta de la lista. Lee
+      sensor.tesla_grok_ultima_operacion.'
+    mode: single
+    max_exceeded: silent
+    trace:
+      stored_traces: 10
+    sequence:
+    - *id003
+    - if:
+      - condition: template
+        value_template: '{{ not is_state(''input_boolean.tesla_grok_permitir_camaras'',''on'') }}'
+      then:
+      - event: tesla_grok_operacion
+        event_data:
+          summary: Envio de fotos desautorizado
+          at: '{{ now().isoformat() }}'
+      - stop: Envio de fotos desautorizado
+    - variables:
+        catalog: {}
+        selection: '{{ camara | default('''') }}'
+    - if:
+      - condition: template
+        value_template: '{{ selection is not string or selection not in catalog }}'
+      then:
+      - event: tesla_grok_operacion
+        event_data:
+          summary: Camara no configurada o fuera de la lista
+          at: '{{ now().isoformat() }}'
+      - stop: Camara no configurada o fuera de la lista
+    - if:
+      - condition: template
+        value_template: '{{ not is_state(''timer.tesla_grok_camara'',''idle'') }}'
+      then:
+      - event: tesla_grok_operacion
+        event_data:
+          summary: Espera al menos dos minutos entre peticiones
+          at: '{{ now().isoformat() }}'
+      - stop: Espera al menos dos minutos entre peticiones
+    - if:
+      - condition: template
+        value_template: '{{ states(catalog[selection]) != ''off'' }}'
+      then:
+      - event: tesla_grok_operacion
+        event_data:
+          summary: Adaptador de camara ocupado o indisponible
+          at: '{{ now().isoformat() }}'
+      - stop: Adaptador de camara ocupado o indisponible
+    - action: timer.start
+      target:
+        entity_id: timer.tesla_grok_camara
+    - event: tesla_grok_operacion
+      event_data:
+        summary: Envio solicitado; pendiente de confirmacion del adaptador
+        at: '{{ now().isoformat() }}'
+    - action: '{{ catalog[selection] }}'
+      response_variable: delivery
+    - if:
+      - condition: template
+        value_template: '{{ delivery is not mapping or not delivery.get(''accepted'',false) }}'
+      then:
+      - event: tesla_grok_operacion
+        event_data:
+          summary: Envio no confirmado por el adaptador; revisa Telegram y trazas
+          at: '{{ now().isoformat() }}'
+      - stop: Envio no confirmado por el adaptador; revisa Telegram y trazas
+    - event: tesla_grok_operacion
+      event_data:
+        summary: Telegram ha aceptado la foto segun el adaptador local. No se ha analizado la imagen ni confirmado
+          su lectura.
+        at: '{{ now().isoformat() }}'
+    fields:
+      camara:
+        description: Camara configurada localmente
+        required: true
+        selector:
+          select:
+            options:
+            - no_configurada
+automation:
+- id: tesla_grok_conciliar
+  alias: Tesla Grok conciliar reserva y presencia
+  mode: single
+  triggers:
+  - trigger: time_pattern
+    minutes: /1
+  - trigger: homeassistant
+    event: start
+  - trigger: event
+    event_type: timer.finished
+    event_data:
+      entity_id: timer.tesla_grok_luz
+  - trigger: state
+    entity_id:
+    - sensor.tesla_grok_presencia
+    - input_boolean.tesla_grok_habilitado
+    - input_boolean.tesla_grok_vacaciones
+    - input_boolean.tesla_grok_permitir_luces
+    - input_boolean.tesla_grok_permitir_simulacion
+  actions:
+  - action: script.tesla_grok_motor
+    data:
+      operation: liberar
+  - if:
+    - condition: template
+      value_template: '{{ not is_state(''sensor.tesla_grok_presencia'',''Vacia verificada'') }}'
+    then:
+    - action: input_boolean.turn_off
+      target:
+        entity_id: input_boolean.tesla_grok_ausencia
+    - action: input_boolean.turn_off
+      target:
+        entity_id: input_boolean.tesla_grok_vacaciones

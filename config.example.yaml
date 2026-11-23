@@ -1,0 +1,27 @@
+# This file contains no real entities. Empty sections remain disabled/unknown.
+# Copy to local/config.yaml (ignored by Git), then consult docs/configuracion.md.
+schema: 1
+presence:
+  # List EVERY resident; phone/car absence alone is never sufficient.
+  people: []
+  witnesses: []       # Indoor motion/occupancy binary_sensors: on vetoes absence.
+  max_age_seconds: 900
+  quiet_seconds: 300
+security: []           # Explicit state rules; examples in docs/configuracion.md.
+homelab: []            # Explicit state/numeric rules with coverage categories.
+lighting:
+  arrival: null        # One verified ordinary light entity.
+  leave: []            # Only these ordinary lights may be switched off.
+  simulation: null    # Optional dedicated lamp, not managed by another routine.
+  max_minutes: 10
+climate:
+  # Optional fixed local scripts. No arbitrary services/targets from Grok.
+  arrival_script: null
+  away_script: null
+alarm:
+  entity: null
+  contacts: []         # Complete perimeter for the configured arm modes.
+  # Arming is omitted unless both this list and an alarm entity are configured.
+cameras: {}
+# Optional mapping: camera keyword -> PRIVATE, reviewed local sending script.
+# It must fix the camera and Telegram destination internally; see docs/extensiones.md.
